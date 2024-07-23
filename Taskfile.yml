@@ -1,0 +1,13 @@
+version: 3
+
+dotenv: [".env", ".env.local", "${PWD}/.env", "${PWD}/.env.local", "${HOME}/.env", "${HOME}/.env.local"]
+
+tasks:
+  default:
+    cmd: task --list
+
+  dev:
+    desc: Run development server
+    cmds:
+      - go mod tidy
+      - go run .
