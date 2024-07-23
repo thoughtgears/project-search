@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"cloud.google.com/go/storage"
-
 	"cloud.google.com/go/vertexai/genai"
 	vision "cloud.google.com/go/vision/apiv1"
 )
@@ -19,7 +17,6 @@ import (
 type Client struct {
 	genai      *genai.Client
 	vision     *vision.ImageAnnotatorClient
-	storage    *storage.Client
 	embeddings Embeddings
 	ctx        context.Context
 	modelName  string
@@ -33,13 +30,12 @@ type Client struct {
 type Embeddings struct {
 	client *http.Client
 	URL    string
-	Bucket string
 }
 
 // NewClient creates a new client for the automata service.
 // It returns a client and an error if the client could not be created.
 // The function takes the projectID and region as parameters.
-func NewClient(projectID, region, bucket string) (*Client, error) {
+func NewClient(projectID, region string) (*Client, error) {
 	ctx := context.TODO()
 
 	genaiClient, err := genai.NewClient(ctx, projectID, region)
@@ -52,21 +48,14 @@ func NewClient(projectID, region, bucket string) (*Client, error) {
 		return nil, fmt.Errorf("vision.NewImageAnnotatorClient: %v", err)
 	}
 
-	storageClient, err := storage.NewClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("storage.NewClient: %v", err)
-	}
-
 	return &Client{
-		genai:   genaiClient,
-		vision:  visionClient,
-		storage: storageClient,
+		genai:  genaiClient,
+		vision: visionClient,
 		embeddings: Embeddings{
 			client: &http.Client{
 				Timeout: 30 * time.Second,
 			},
-			URL:    fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:predict", region, projectID, region, "multimodalembedding@001"),
-			Bucket: bucket,
+			URL: fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:predict", region, projectID, region, "multimodalembedding@001"),
 		},
 		ctx:       ctx,
 		modelName: "gemini-1.5-flash-001",

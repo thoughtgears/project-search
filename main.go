@@ -12,77 +12,70 @@ import (
 )
 
 type Config struct {
-	ProjectID    string `envconfig:"GCP_PROJECT_ID"`
-	Region       string `envconfig:"GCP_REGION"`
-	Collection   string `envconfig:"FIRESTORE_COLLECTION" default:"image-data"`
-	VertexBucket string `envconfig:"VERTEX_BUCKET"`
+	ProjectID  string `envconfig:"GCP_PROJECT_ID"`
+	Region     string `envconfig:"GCP_REGION"`
+	Collection string `envconfig:"FIRESTORE_COLLECTION" default:"image-data"`
 }
 
 var config Config
+var database *db.DB
+var client *automata.Client
 
 func init() {
+	var err error
 	envconfig.MustProcess("", &config)
+
+	database, err = db.NewDB(config.ProjectID, config.Collection)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create database")
+	}
+
+	client, err = automata.NewClient(config.ProjectID, config.Region)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create client")
+	}
 
 	zerolog.LevelFieldName = "severity"
 	zerolog.TimestampFieldName = "timestamp"
 }
 
 func main() {
-	database, err := db.NewDB(config.ProjectID, config.Collection)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to create database")
-	}
-
-	documents, err := database.GetDocuments(2000)
+	documents, err := database.GetDocuments(20000)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to get documents")
 	}
 
 	for _, document := range documents {
 		imageURI := fmt.Sprintf("gs://%s/%s", document.Bucket, document.Path)
-		client, err := automata.NewClient(config.ProjectID, config.Region, config.VertexBucket)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to create client")
-		}
-
-		exists, err := client.CheckEmbeddings(document.ID)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to check if document exists")
-		}
-
-		if exists {
-			log.Info().Interface("ID", document.ID).Msg("Document already exists in GCS")
-			continue
-		}
-
 		labels, err := client.GetLabels(imageURI)
 		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to get labels")
-		}
-
-		colors, err := client.GetColors(imageURI)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to get colors")
+			log.Error().Err(err).Msg("Failed to get labels")
 		}
 
 		description, err := client.GetDescription(imageURI, labels)
 		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to get description")
+			log.Error().Err(err).Msg("Failed to get description")
 		}
 
-		embeddings, err := client.GetEmbeddings(description, labels, imageURI)
+		colors, err := client.GetColors(imageURI)
 		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to get embeddings")
+			log.Error().Err(err).Msg("Failed to get colors")
+		}
+
+		embeddings, err := client.GetEmbeddings(imageURI, description, labels)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get embeddings")
 		}
 
 		document.Description = description
-		document.TextEmbeddings = embeddings.Predictions[0].TextEmbedding
 		document.ImageEmbeddings = embeddings.Predictions[0].ImageEmbedding
-		document.Metadata.Labels = labels
+		document.TextEmbeddings = embeddings.Predictions[0].TextEmbedding
 		document.Metadata.Colors = colors
+		document.Metadata.Labels = labels
 
-		if err := client.PutEmbeddings(document); err != nil {
-			log.Fatal().Err(err).Msg("Failed to put embeddings")
+		if err := database.SetDocument(document); err != nil {
+			log.Error().Err(err).Msg("Failed to set document")
 		}
 	}
+
 }

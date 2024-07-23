@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/thoughtgears/project-search/internal/auth"
 )
@@ -64,11 +65,11 @@ type Prediction struct {
 // The description is the description of the image
 // The labels are the labels of the image
 // The imageURI is the URI of the image, where the URI has to start with "gs://"
-func (c *Client) GetEmbeddings(description string, labels []string, imageURI string) (EmbeddingsResponse, error) {
+func (c *Client) GetEmbeddings(imageURI, description string, labels []string) (EmbeddingsResponse, error) {
 	requestBody := EmbeddingsRequestBody{
 		Instances: []Instance{
 			{
-				Text: fmt.Sprintf("%s %s", description, labels),
+				Text: description + " " + strings.Join(labels, " "),
 				Image: Image{
 					GcsUri: imageURI,
 				},
@@ -102,6 +103,23 @@ func (c *Client) GetEmbeddings(description string, labels []string, imageURI str
 	if err != nil {
 		return EmbeddingsResponse{}, fmt.Errorf("ReadAll: %w", err)
 	}
+
+	// If quota is exceeded, return an empty response
+	if resp.StatusCode != 429 {
+		return EmbeddingsResponse{}, fmt.Errorf("status code: %d, body: %s", resp.StatusCode, responseBody)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return EmbeddingsResponse{
+			Predictions: []Prediction{
+				{
+					ImageEmbedding: nil,
+					TextEmbedding:  nil,
+				},
+			},
+		}, fmt.Errorf("status code: %d, body: %s", resp.StatusCode, responseBody)
+	}
+
 	var embeddingsResponse EmbeddingsResponse
 	if err := json.Unmarshal(responseBody, &embeddingsResponse); err != nil {
 		return EmbeddingsResponse{}, fmt.Errorf("unmarshal: %w", err)

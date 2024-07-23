@@ -4,7 +4,6 @@ go 1.22
 
 require (
 	cloud.google.com/go/firestore v1.15.0
-	cloud.google.com/go/storage v1.40.0
 	cloud.google.com/go/vertexai v0.12.0
 	cloud.google.com/go/vision v1.2.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -28,7 +27,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.4 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

@@ -23,7 +23,7 @@ func NewDB(projectID, collection string) (*DB, error) {
 	ctx := context.TODO()
 	client, err := firestore.NewClient(ctx, projectID)
 	if err != nil {
-		return nil, fmt.Errorf("firestore.NewClient: %v", err)
+		return nil, fmt.Errorf("firestore.NewClient: %w", err)
 	}
 
 	return &DB{

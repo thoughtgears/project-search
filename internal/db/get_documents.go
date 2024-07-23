@@ -20,11 +20,11 @@ func (d *DB) GetDocuments(limit int) ([]Document, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("itr.Next: %v", err)
+			return nil, fmt.Errorf("itr.Next: %w", err)
 		}
 		var document Document
 		if err := doc.DataTo(&document); err != nil {
-			return nil, fmt.Errorf("doc.DataTo: %v", err)
+			return nil, fmt.Errorf("doc.DataTo: %w", err)
 		}
 		document.ID = doc.Ref.ID
 		docs = append(docs, document)
